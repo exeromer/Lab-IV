@@ -60,4 +60,5 @@ export interface PedidoDetalle { // MANTENER - Útil para tipar la respuesta del
     cantidad: number;
     precioUnitario: number;
     instrumento: Instrumento; // El backend devuelve el Instrumento completo aquí.
+    nombreInstrumento: string;
 }

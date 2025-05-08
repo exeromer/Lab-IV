@@ -6,6 +6,7 @@ public class PedidoDetalleDTO {
     private Integer cantidad;
     private BigDecimal precioUnitario;
     private Long instrumentoId;
+    private String nombreInstrumento; // Nuevo campo para el nombre del instrumento
 
     // Getters y Setters
     public Integer getCantidad() { return cantidad; }
@@ -17,4 +18,6 @@ public class PedidoDetalleDTO {
     public Long getInstrumentoId() {return instrumentoId;}
 
     public void setInstrumentoId(Long instrumentoId) {this.instrumentoId = instrumentoId;}
+
+    
 }

@@ -49,14 +49,22 @@ const GrillaPedidos = () => {
                                     <span>Total: ${pedido.total.toFixed(2)}</span>
                                 </div>
                                 <div className="detalles-pedido">
-                                    {pedido.detalles.map((detalle, index) => (
-                                        <div key={`${pedido.id}-${detalle.id || index}`} className="detalle-item">
-                                            <span>{detalle.instrumento?.instrumento || 'Instrumento no disponible'}</span>
-                                            <span>Cantidad: {detalle.cantidad}</span>
-                                            <span>Precio unitario: ${detalle.precioUnitario.toFixed(2)}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                    {pedido.detalles.map((detalle, index) => {
+                                        console.log(`--- Detalle #${index} ---`);
+                                        console.log("Detalle completo:", JSON.stringify(detalle, null, 2));
+
+                                        const nombreInstrumento = detalle.nombreInstrumento || 'Instrumento no disponible'; // Acceder directamente a detalle.nombreInstrumento
+
+                                        console.log("Nombre del instrumento:", nombreInstrumento);
+
+                                        return (
+                                            <div key={`${pedido.id}-${detalle.id || index}`} className="detalle-item">
+                                                <span>{nombreInstrumento}</span>
+                                                <span>Cantidad: {detalle.cantidad}</span>
+                                                <span>Precio unitario: ${detalle.precioUnitario.toFixed(2)}</span>
+                                            </div>
+                                        );
+                                    })}                                </div>
                             </div>
                         ))}
                     </div>

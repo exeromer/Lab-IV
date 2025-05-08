@@ -32,6 +32,13 @@ export const CarritoAside: React.FC<CarritoAsideProps> = ({ visible, onClose }) 
         setTimeout(() => setMensaje(null), 3000);
         return;
       }
+      //  **** PRIMER console.log() ****
+            console.log("Detalles del pedido a enviar (detallesParaEnviar):", detallesParaEnviar);
+             const pedidoParaEnviar = { detalles: detallesParaEnviar };
+
+            //  **** SEGUNDO console.log() ****
+            console.log("Objeto Pedido completo a enviar (pedidoParaEnviar):", pedidoParaEnviar);
+
 
       const response = await fetch('http://localhost:8080/api/pedido', {
         method: 'POST',
@@ -42,10 +49,23 @@ export const CarritoAside: React.FC<CarritoAsideProps> = ({ visible, onClose }) 
       });
 
       const data = await response.json(); // Asumimos que el backend devuelve el Pedido creado o un error
-      
+        
+      //  **** LOG DE DEPURACIÓN ****
+        console.log("Respuesta completa del backend:", data);
+        
+        let pedidoId = undefined;
+        if (data && data.mensaje) {
+            const match = data.mensaje.match(/El pedido con id (\d+) se guardó correctamente/);
+            if (match) {
+                pedidoId = match[1];
+            }
+        }
+
+        console.log("ID del pedido extraído:", pedidoId);
+        
       if (response.ok) {
         // Asumiendo que 'data' es el Pedido guardado y tiene un 'id'
-        setMensaje(`✅ Pedido guardado con éxito. ID: ${data.id || ''}`);
+        setMensaje(`✅ Pedido guardado con éxito. ID: ${pedidoId || 'N/A'}`);
         limpiarCarrito();
         setTimeout(() => {
           setMensaje(null);
