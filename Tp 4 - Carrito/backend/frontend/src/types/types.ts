@@ -1,64 +1,134 @@
-export interface Instrumento { // MANTENER - Esta es tu entidad completa de Instrumento, muy útil.
-    id?: number;
-    instrumento: string;
-    imagen: string;
-    precio: number;
-    costoEnvio: string;
-    cantidadVendida: number;
+/**********************************************
+ * TIPOS PRINCIPALES DE LA APLICACIÓN
+ **********************************************/
+
+/**
+ * Representa un instrumento musical en el sistema.
+ * - `id`: Identificador único (opcional en creación).
+ * - `categoria`: Relación con la clasificación del instrumento.
+ * - `costoEnvio`: Podría ser string (ej: "Gratis") o number para cálculos.
+ */
+export interface Instrumento {
+    id: number;
+    instrumento: string;       // Nombre del instrumento
+    imagen: string;            // URL de la imagen
+    precio: number;            
+    costoEnvio: string;        // Ej: "Gratis" o "$500"
+    cantidadVendida: number;   // Popularidad del producto
     marca: string;
     modelo: string;
     descripcion: string;
-    categoria: Categoria;
+    categoria: Categoria;      // Clasificación por tipo
 }
-export interface Categoria { // MANTENER - Necesaria para Instrumento.
+
+// Tipo usado para creación, sin `id`
+export type NuevoInstrumento = Omit<Instrumento, 'id'>;
+
+/**
+ * Categoría para agrupar instrumentos (ej: "Cuerdas", "Vientos").
+ */
+export interface Categoria {
     id: number;
     denominacion: string;
 }
-export interface CardProps { // MANTENER - No relacionada directamente con el refactor del carrito.
+
+/**********************************************
+ * COMPONENTES Y CONTEXTOS
+ **********************************************/
+
+/**
+ * Props para el componente Card que muestra un instrumento.
+ * - `instrumento`: Datos a mostrar en la tarjeta.
+ */
+export interface CardProps {
     instrumento: Instrumento;
 }
 
-export interface ModalProps { // MANTENER - No relacionada directamente con el refactor del carrito.
+/**
+ * Props para un modal (ej: edición o detalles de instrumento).
+ * - `show`: Controla visibilidad del modal.
+ * - `handleClose`: Función para cerrarlo.
+ * - `instrumento`: Datos a mostrar/editar.
+ */
+export interface ModalProps {
     show: boolean;
     handleClose: () => void;
     instrumento: Instrumento;
 }
 
+/**
+ * Contexto del carrito de compras:
+ * - `carrito`: Lista de ítems agregados.
+ * - `agregarAlCarrito`: Añade un nuevo instrumento.
+ * - `limpiarCarrito`: Vacía el carrito.
+ * - `modificarCantidad`: Actualiza cantidad de un ítem.
+ * - `eliminarItem`: Quita un ítem del carrito.
+ */
 export interface CartContextType {
-    itemsDelCarrito: ItemCarritoNuevo[]; // <--- CAMBIO AQUÍ
-    agregarAlCarrito: (instrumento: Instrumento) => void; // Se mantiene igual, recibe el Instrumento completo
+    carrito: CarritoItem[];
+    agregarAlCarrito: (instrumento: Instrumento) => void;
     limpiarCarrito: () => void;
-    modificarCantidad: (instrumentoId: number, cantidad: number) => void; // <--- CAMBIO AQUÍ (id -> instrumentoId)
-    eliminarItem: (instrumentoId: number) => void; // <--- CAMBIO AQUÍ (id -> instrumentoId)
+    modificarCantidad: (id: number, cantidad: number) => void;
+    eliminarItem: (id: number) => void;
 }
 
-export interface ItemCarritoNuevo {
-    instrumentoId: number;       // Corresponde al id del Instrumento
-    nombreInstrumento: string;   // Corresponde al campo 'instrumento' del Instrumento (el nombre)
+/**
+ * Ítem dentro del carrito de compras.
+ * - `id`: Identificador del instrumento.
+ * - `cantidad`: Unidades seleccionadas.
+ */
+export interface CarritoItem {
+    id: number;
+    instrumento: string;
+    precio: number;
     cantidad: number;
-    precioUnitario: number;    // Será el 'precio' del Instrumento al momento de añadirlo
-    imagenInstrumento: string;   // Corresponde a la 'imagen' del Instrumento (ya que la usabas)
+    imagen: string;
 }
 
+/**
+ * Props para el Aside/panel lateral del carrito.
+ * - `visible`: Controla si se muestra.
+ * - `onClose`: Función para cerrarlo.
+ * - Funciones para modificar el carrito.
+ */
 export interface CarritoAsideProps {
     visible: boolean;
     onClose: () => void;
-    // Las siguientes dos líneas se eliminan si no se pasan como props directas:
-    modificarCantidad: (instrumentoId: number, cantidad: number) => void;
-    eliminarItem: (instrumentoId: number) => void;
+    modificarCantidad: (id: number, cantidad: number) => void;
+    eliminarItem: (id: number) => void;
 }
 
-export interface Pedido { // MANTENER - Útil para tipar la respuesta del backend al guardar.
+/**********************************************
+ * PEDIDOS Y DETALLES
+ **********************************************/
+
+// Agregar estos tipos
+export interface PedidoResponse {
     id: number;
     fecha: string;
     total: number;
-    detalles: PedidoDetalle[];
+    detalles: DetallePedidoResponse[];
 }
 
-export interface PedidoDetalle { // MANTENER - Útil para tipar la respuesta del backend.
-    id: number;
+export interface DetallePedidoResponse {
     cantidad: number;
     precioUnitario: number;
-    instrumento: Instrumento; // El backend devuelve el Instrumento completo aquí.
-    nombreInstrumento: string;
+    instrumento: InstrumentoPedidoResponse;
+}
+
+export interface InstrumentoPedidoResponse {
+    id: number;
+    instrumento: string;
+    precio: number;
+}
+
+export interface DetallePedidoRequest {
+instrumentoId: number
+cantidad: number
+}
+
+export interface PedidoRequest {
+fecha: string
+total: number
+detalles: DetallePedidoRequest[]
 }

@@ -5,9 +5,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faMinus, faPlus, faTrashCan } from '@fortawesome/free-solid-svg-icons'
 
 const Modal: React.FC<ModalProps> = ({ show, handleClose, instrumento }) => {
-    const { itemsDelCarrito: carrito, agregarAlCarrito, modificarCantidad, eliminarItem } = useCart(); // Usamos el hook
+    const { carrito, agregarAlCarrito, modificarCantidad, eliminarItem } = useCart(); // Usamos el hook
 
-    const itemEnCarrito = carrito?.find((item) => item.instrumentoId === instrumento.id);
+    const itemEnCarrito = carrito.find((item) => item.id === instrumento.id);
 
     if (!show) return null;
 

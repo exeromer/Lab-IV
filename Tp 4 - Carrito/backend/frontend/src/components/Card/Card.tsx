@@ -11,9 +11,9 @@ const Card: React.FC<CardProps> = ({ instrumento }) => {
     const handleShow = () => setShowModal(true);
     const handleClose = () => setShowModal(false);
 
-    const { itemsDelCarrito: carrito, agregarAlCarrito, modificarCantidad, eliminarItem } = useCart();
+    const { carrito, agregarAlCarrito, modificarCantidad, eliminarItem } = useCart();
 
-    const itemEnCarrito = carrito.find((item) => item.instrumentoId === instrumento.id);
+    const itemEnCarrito = carrito.find((item) => item.id === instrumento.id);
 
     return (
         <div className='card-container'>
