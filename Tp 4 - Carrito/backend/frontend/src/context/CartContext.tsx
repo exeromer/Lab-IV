@@ -1,97 +1,72 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Instrumento, ItemCarritoNuevo, CartContextType } from "../types/types";
+import { Instrumento, CarritoItem, CartContextType } from "../types/types";
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [items, setItems] = useState<ItemCarritoNuevo[]>(() => {
-    const carritoGuardado = localStorage.getItem("carrito"); 
-
-    if (carritoGuardado) { 
-      try {
-        const parsedItems = JSON.parse(carritoGuardado); 
-        if (Array.isArray(parsedItems) &&
-            (parsedItems.length === 0 || 
-             (parsedItems[0] && 
-              typeof parsedItems[0].instrumentoId === 'number' && 
-              typeof parsedItems[0].nombreInstrumento === 'string'))) { 
-          return parsedItems as ItemCarritoNuevo[]; 
-        } else {
-          console.warn("La estructura del carrito en localStorage no coincide con la esperada. Se iniciará un carrito vacío.");
-          return []; 
-        }
-      } catch (error) {
-        console.error("Error al parsear el carrito desde localStorage. Se iniciará un carrito vacío.", error);
-        return [];
-      }
-    }
-    return [];
+  const [carrito, setCarrito] = useState<CarritoItem[]>(() => {
+    const carritoGuardado = localStorage.getItem("carrito");
+    return carritoGuardado ? JSON.parse(carritoGuardado) : [];
   });
 
   useEffect(() => {
-    localStorage.setItem("carrito", JSON.stringify(items)); 
-  }, [items]); 
+    localStorage.setItem("carrito", JSON.stringify(carrito));
+  }, [carrito]);
 
   const agregarAlCarrito = (instrumento: Instrumento) => {
-    const instrumentoId = instrumento.id;
-
-    if (typeof instrumentoId !== 'number') { 
-      console.error("Instrumento sin ID numérico válido no puede ser añadido:", instrumento);
-      return; 
+    // Validar que el instrumento tenga ID
+    if (!instrumento.id) {
+      throw new Error("El instrumento no tiene un ID válido");
     }
 
-    setItems((prevItems) => {
-      const existe = prevItems.find((item) => item.instrumentoId === instrumentoId);
+    setCarrito((prev) => {
+      const existe = prev.find((p) => p.id === instrumento.id);
       if (existe) {
-        return prevItems.map((item) =>
-          item.instrumentoId === instrumentoId
-            ? { ...item, cantidad: item.cantidad + 1 }
-            : item
+        return prev.map((p) =>
+          p.id === instrumento.id ? { ...p, cantidad: p.cantidad + 1 } : p
         );
       } else {
-        const nuevoItem: ItemCarritoNuevo = {
-          instrumentoId: instrumentoId,
-          nombreInstrumento: instrumento.instrumento, 
-          precioUnitario: instrumento.precio,       
+        // Mapear solo las propiedades necesarias
+        return [...prev, {
+          id: instrumento.id,
+          instrumento: instrumento.instrumento,
+          precio: instrumento.precio,
           cantidad: 1,
-          imagenInstrumento: instrumento.imagen     
-        };
-        return [...prevItems, nuevoItem];
+          imagen: instrumento.imagen
+        }];
       }
     });
   };
 
-  const modificarCantidad = (instrumentoId: number, cantidad: number) => { 
-    setItems((prevItems) => 
-      prevItems
-        .map((item) =>
-          item.instrumentoId === instrumentoId 
-            ? { ...item, cantidad: cantidad } 
-            : item
-        )
-        .filter((item) => item.cantidad > 0) 
+  const modificarCantidad = (id: number, cantidad: number) => {
+    setCarrito((prev) =>
+        prev
+            .map((item) =>
+                item.id === id ? { ...item, cantidad: Math.max(0, cantidad) } : item
+            )
+            .filter((item) => item.cantidad > 0)
     );
-  };
+};
 
-  const eliminarItem = (instrumentoId: number) => { 
-    setItems((prevItems) => prevItems.filter((item) => item.instrumentoId !== instrumentoId)); 
-  };
+const eliminarItem = (id: number) => {
+    setCarrito((prev) => prev.filter((item) => item.id !== id));
+};
 
-  const limpiarCarrito = () => setItems([]); 
+const limpiarCarrito = () => setCarrito([]);
 
   return (
-    <CartContext.Provider
-      value={{
-        itemsDelCarrito: items, 
-        agregarAlCarrito,
-        modificarCantidad,
-        eliminarItem,
-        limpiarCarrito,
-      }}
+    <CartContext.Provider 
+        value={{ 
+            carrito, 
+            agregarAlCarrito, 
+            modificarCantidad, 
+            eliminarItem, 
+            limpiarCarrito
+        }}
     >
-      {children}
+        {children}
     </CartContext.Provider>
-  );
+);
 };
 
 export const useCart = () => {

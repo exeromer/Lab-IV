@@ -1,34 +1,41 @@
 package com.utn.frm.instrumentos.entities;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 
+/**
+ * PedidoDetalle.java
+ * Entidad que representa un ítem dentro de un pedido.
+ * Relacionada con la tabla 'pedido_detalle' en la base de datos.
+ */
 @Entity
 @Table(name = "pedido_detalle")
 public class PedidoDetalle {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
     private Integer cantidad;
-    @Column(name = "precio_unitario", precision = 10, scale = 2)
-    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+
+    @Column(name = "precio_unitario", precision = 10, scale = 2, nullable = false)
     private BigDecimal precioUnitario;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "instrumento_id") // Nombre de columna en la BD
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "instrumento_id", nullable = false)
     private Instrumento instrumento;
 
-    @ManyToOne
-    @JoinColumn(name = "pedido_id")
-    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pedido_id", nullable = false)
     private Pedido pedido;
 
-    public PedidoDetalle() {}
+    public PedidoDetalle() {
+    }
 
-    public Long getId() {return id;}
+    public Long getId() {
+        return id;
+    }
 
     public void setId(Long id) {
         this.id = id;
@@ -42,11 +49,21 @@ public class PedidoDetalle {
         this.cantidad = cantidad;
     }
 
+    public BigDecimal getPrecioUnitario() {
+        return precioUnitario;
+    }
+
+    public void setPrecioUnitario(BigDecimal precioUnitario) {
+        this.precioUnitario = precioUnitario;
+    }
+
     public Instrumento getInstrumento() {
         return instrumento;
     }
 
-    public void setInstrumento(Instrumento instrumento) {this.instrumento = instrumento;}
+    public void setInstrumento(Instrumento instrumento) {
+        this.instrumento = instrumento;
+    }
 
     public Pedido getPedido() {
         return pedido;
@@ -55,8 +72,4 @@ public class PedidoDetalle {
     public void setPedido(Pedido pedido) {
         this.pedido = pedido;
     }
-
-    public BigDecimal getPrecioUnitario() {return precioUnitario;}
-
-    public void setPrecioUnitario(BigDecimal precioUnitario) {this.precioUnitario = precioUnitario;}
 }

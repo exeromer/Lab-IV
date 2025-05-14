@@ -1,47 +1,53 @@
 package com.utn.frm.instrumentos.entities;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 
+/**
+ * Instrumento.java
+ * Entidad que representa un instrumento musical.
+ * Relacionada con la tabla 'instrumentos' en la base de datos.
+ */
 @Entity
 @Table(name = "instrumentos")
 public class Instrumento {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false, length = 150)
     private String instrumento;
+
+    @Column(length = 50)
     private String marca;
+
+    @Column(length = 50)
     private String modelo;
+
+    @Column(length = 255)
     private String imagen;
-    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+
+    @Column(precision = 10, scale = 2, nullable = false)
     private BigDecimal precio;
-    @Column(name = "costo_envio")
+
+    @Column(name = "costo_envio", length = 50)
     private String costoEnvio;
+
     @Column(name = "cantidad_vendida")
     private int cantidadVendida;
+
+    @Column(columnDefinition = "TEXT")
     private String descripcion;
 
-    @ManyToOne(optional = true)
-    @JoinColumn(name = "categoria_id")
-    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoria_id", nullable = false)
+    @JsonIgnoreProperties({"instrumentos", "hibernateLazyInitializer", "handler"})
     private Categoria categoria;
 
-    public Instrumento() {}
-
-    public Instrumento(String instrumento, String marca, String modelo, String imagen, BigDecimal precio, String costoEnvio, int cantidadVendida, String descripcion, Categoria categoria) {
-        this.instrumento = instrumento;
-        this.marca = marca;
-        this.modelo = modelo;
-        this.imagen = imagen;
-        this.precio = precio;
-        this.costoEnvio = costoEnvio;
-        this.cantidadVendida = cantidadVendida;
-        this.descripcion = descripcion;
-        this.categoria = categoria;
+    public Instrumento() {
     }
 
     public Long getId() {

@@ -1,5 +1,6 @@
 package com.utn.frm.instrumentos.entities;
 
+import com.utn.frm.instrumentos.entities.PedidoDetalle;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -7,6 +8,11 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Pedido.java
+ * Entidad que representa un pedido realizado.
+ * Relacionada con la tabla 'pedido' en la base de datos.
+ */
 @Entity
 @Table(name = "pedido")
 public class Pedido {
@@ -14,19 +20,16 @@ public class Pedido {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private ZonedDateTime fecha;
-    private BigDecimal total; // Usar BigDecimal para coincidir con la BD
 
-    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @Column(precision = 10, scale = 2, nullable = false)
+    private BigDecimal total;
+
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PedidoDetalle> detalles = new ArrayList<>();
 
-    public Pedido() {}
-
-    public Pedido(Long id, ZonedDateTime fecha, BigDecimal total, List<PedidoDetalle> detalles) {
-        this.id = id;
-        this.fecha = fecha;
-        this.total = total;
-        this.detalles = detalles;
+    public Pedido() {
     }
 
     public Long getId() {

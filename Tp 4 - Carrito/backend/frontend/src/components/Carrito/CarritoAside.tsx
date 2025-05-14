@@ -1,150 +1,210 @@
-import { useCart } from '../../context/CartContext'; // Asumiendo que CartContext está en esta ruta
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMinus, faPlus, faTrashCan } from '@fortawesome/free-solid-svg-icons';
-import './CarritoAside.sass'; // Asegúrate que la ruta al SASS sea correcta
-import Titulo from '../Titulo/Titulo'; // Asegúrate que la ruta al componente Titulo sea correcta
-import { useState, useEffect } from 'react'; // useEffect añadido si quieres limpiar mensajes al desmontar
-import { CarritoAsideProps } from '../../types/types'; // Asegúrate que esta interfaz esté actualizada
+import { useCart } from '../../context/CartContext'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faMinus, faPlus, faTrashCan } from '@fortawesome/free-solid-svg-icons'
+import './CarritoAside.sass'
+import Titulo from '../Titulo/Titulo'
+import { useState } from 'react'
+import { CarritoAsideProps, PedidoRequest } from '../../types/types'
+
+//Declaracion MercadoPago 
+declare global {
+  interface Window {
+    MercadoPago: any;
+  }
+}
 
 export const CarritoAside: React.FC<CarritoAsideProps> = ({ visible, onClose }) => {
-  // Paso 1: Actualizar la desestructuración de useCart()
-  const { itemsDelCarrito, limpiarCarrito, modificarCantidad, eliminarItem } = useCart();
-  const [mensaje, setMensaje] = useState<string | null>(null);
+  const { carrito, limpiarCarrito, modificarCantidad, eliminarItem } = useCart()
+  const [mensaje, setMensaje] = useState<string | null>(null); //Estado para mensajes
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Opcional: Limpiar mensaje cuando el carrito se cierra o desmonta
-  useEffect(() => {
-    if (!visible) {
-      setMensaje(null);
-    }
-  }, [visible]);
+  const MERCADOPAGO_PUBLIC_KEY = "APP_USR-9a1a1cb2-bc56-4419-a061-7e7c20ba1127"; // Reemplaza con clave de publicación de MercadoPago
 
-  // Paso 2: Actualizar handleGuardarPedido
+
   const handleGuardarPedido = async () => {
+    if (carrito.length === 0) {
+      setMensaje("El carrito está vacío.");
+      return;
+    }
+    setIsLoading(true);
+    setMensaje("Procesando pedido...");
+
     try {
-      const detallesParaEnviar = itemsDelCarrito.map(item => ({
-        instrumentoId: item.instrumentoId,
-        cantidad: item.cantidad,
-        precioUnitario: item.precioUnitario
-      }));
+      // Calcular el total del pedido
+      const calcularTotal = () => {
+        return carrito.reduce((total, item) => {
+          return total + (item.precio * item.cantidad);
+        }, 0);
+      };
 
-      if (detallesParaEnviar.length === 0) {
-        setMensaje('⚠️ El carrito está vacío.');
-        setTimeout(() => setMensaje(null), 3000);
-        return;
+      const pedido: PedidoRequest = {
+        fecha: new Date().toISOString(),
+        total: calcularTotal(),
+        detalles: carrito.map(item => ({
+          instrumentoId: item.id,
+          cantidad: item.cantidad,
+        })),
       }
-      //  **** PRIMER console.log() ****
-            console.log("Detalles del pedido a enviar (detallesParaEnviar):", detallesParaEnviar);
-             const pedidoParaEnviar = { detalles: detallesParaEnviar };
 
-            //  **** SEGUNDO console.log() ****
-            console.log("Objeto Pedido completo a enviar (pedidoParaEnviar):", pedidoParaEnviar);
-
-
-      const response = await fetch('http://localhost:8080/api/pedido', {
+      const response = await fetch('http://localhost:8080/api/pedidos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ detalles: detallesParaEnviar }), // El backend espera un objeto { detalles: [...] }
+        body: JSON.stringify(pedido), // Enviar el objeto 'pedido' completo
       });
 
-      const data = await response.json(); // Asumimos que el backend devuelve el Pedido creado o un error
-        
-      //  **** LOG DE DEPURACIÓN ****
-        console.log("Respuesta completa del backend:", data);
-        
-        let pedidoId = undefined;
-        if (data && data.mensaje) {
-            const match = data.mensaje.match(/El pedido con id (\d+) se guardó correctamente/);
-            if (match) {
-                pedidoId = match[1];
-            }
-        }
-
-        console.log("ID del pedido extraído:", pedidoId);
-        
-      if (response.ok) {
-        // Asumiendo que 'data' es el Pedido guardado y tiene un 'id'
-        setMensaje(`✅ Pedido guardado con éxito. ID: ${pedidoId || 'N/A'}`);
-        limpiarCarrito();
-        setTimeout(() => {
-          setMensaje(null);
-          onClose(); // Cierra el carrito
-        }, 3000); // Mensaje de éxito un poco más largo
-      } else {
-        // Mejor manejo de errores del backend
-        const errorMsg = data.message || (data.errors && data.errors[0]?.defaultMessage) || data.error || 'Error al guardar el pedido';
-        throw new Error(errorMsg);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al guardar el pedido');
       }
+      const orderId = data.id; // Asumiendo que el ID viene en la raíz del DTO de respuesta
+      setMensaje(`Pedido Nro. ${orderId} guardado. Preparando pago...`);
+      
+      // Realizar el pago con MercadoPago
+      const responsePreferencia = await fetch(`http://localhost:8080/api/pedidos/${orderId}/preferencia`, {
+        method: 'POST', // Confirmado por tu PedidoController.java
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const dataPreferencia = await responsePreferencia.json();
+
+      if (!responsePreferencia.ok) {
+        throw new Error(dataPreferencia.error || 'Error al crear la preferencia de pago');
+      }
+
+      // El backend devuelve preferenceId y initPoint
+      const preferenceId = dataPreferencia.preferenceId;
+      const initPointUrl = dataPreferencia.initPoint; // <-- URL de redirección directa
+
+      if (!preferenceId && !initPointUrl) { // Verificamos si alguno de los dos existe
+        throw new Error('No se recibió el ID de preferencia o el init_point de Mercado Pago.');
+      }
+
+      // Redirigir al usuario a la URL de redirección directa de Mercado Pago
+      if (initPointUrl) {
+        window.location.href = initPointUrl;
+      }
+      else if (preferenceId) { // Si no hay initPoint pero sí preferenceId, y el SDK está cargado
+         if (window.MercadoPago) {
+            const mp = new window.MercadoPago(MERCADOPAGO_PUBLIC_KEY, {
+             locale: 'es-AR' // Ajusta la localización si es necesario
+           });
+           mp.checkout({
+             preference: {
+               id: preferenceId
+             },
+             autoOpen: true,
+           });
+         } else {
+            console.error("El SDK de Mercado Pago no está cargado y no se pudo usar el preferenceId.");
+            throw new Error("Error al iniciar el pago: SDK de Mercado Pago no disponible para usar preferenceId.");
+         }
+       }
+      else {
+        console.error("El SDK de Mercado Pago no está cargado o no se recibió información para la redirección.");
+        throw new Error("Error al iniciar el pago: No se pudo redirigir a Mercado Pago.");
+      }
+
     } catch (error) {
-      console.error('Error al guardar pedido:', error);
-      setMensaje(error instanceof Error ? `❌ ${error.message}` : '❌ Error desconocido al procesar el pedido');
-      setTimeout(() => setMensaje(null), 5000); // Mantener mensaje de error más tiempo
+      console.error('Error en el proceso:', error);
+      setMensaje(error instanceof Error ? `❌ ${error.message}` : '❌ Error desconocido durante el proceso');
+      setIsLoading(false);
     }
   };
 
   if (!visible) return null;
 
-  // Paso 3: Actualizar el cálculo del total
-  const total = itemsDelCarrito.reduce((acc, item) => acc + item.precioUnitario * item.cantidad, 0);
+  const total = carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
 
   return (
-    <div className="carrito-overlay" onClick={onClose}>
+    <div className="carrito-overlay" onClick={isLoading ? undefined : onClose}> {/* Evita cerrar el overlay si está cargando */}
       <aside className="carrito-aside" onClick={e => e.stopPropagation()}>
         <Titulo texto='Carrito' />
-        
-        {mensaje && <div className={`feedback-mensaje ${mensaje.startsWith('✅') ? 'exito' : 'error'}`}>{mensaje}</div>}
 
-        {/* Paso 4: Actualizar el renderizado de la lista de ítems */}
-        {itemsDelCarrito.length === 0 ? (
-          <p style={{ textAlign: 'center', fontSize: '20px', marginTop: '20px' }}>El carrito está vacío</p>
-        ) : (
-          <ul style={{ padding: 0, margin: 0, listStyleType: 'none' }}>
-            {itemsDelCarrito.map(item => ( // 'item' es ahora un ItemCarritoNuevo
-              <li key={item.instrumentoId} className='carrito-item'> {/* key ahora es item.instrumentoId */}
-                <div className='item-imagen-container'>
-                  {/* Asumiendo que tienes item.imagenInstrumento y quieres mostrarla */}
-                  <img src={item.imagenInstrumento} alt={item.nombreInstrumento} className='item-imagen-carrito' />
-                </div>
-                <div className='contenedor-texto'>
-                  <span>{item.nombreInstrumento}</span> {/* Usa la propiedad nombreInstrumento */}
-                  <span>${item.precioUnitario.toFixed(2)}</span> {/* Usa la propiedad precioUnitario */}
-                </div>
-
-                <div className='botones-contenedor'>
-                  <div>
-                    <button 
-                      className='cantidad' 
-                      onClick={() => modificarCantidad(item.instrumentoId, item.cantidad - 1)}
-                      disabled={item.cantidad <= 0} // Deshabilitar si la cantidad es 0 (aunque se filtra)
-                    >
-                      <FontAwesomeIcon icon={faMinus} />
-                    </button>
-                    <span style={{ padding: '0 10px', minWidth: '20px', textAlign: 'center', display: 'inline-block' }}>{item.cantidad}</span>
-                    <button className='cantidad' onClick={() => modificarCantidad(item.instrumentoId, item.cantidad + 1)}>
-                      <FontAwesomeIcon icon={faPlus} />
-                    </button>
-                  </div>
-                  <button className='eliminar' onClick={() => eliminarItem(item.instrumentoId)}> {/* Pasar item.instrumentoId */}
-                    <FontAwesomeIcon icon={faTrashCan} />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        
-        {itemsDelCarrito.length > 0 && ( // Solo mostrar total y botones si hay items
-          <div className='botones-carrito'>
-            <p style={{ margin: '8px 0 16px 0', textAlign: 'center', fontSize: '1.3em', fontWeight: 'bold' }}>
-              Total: ${total.toFixed(2)}
-            </p>
-            <button className='vaciar-carrito' onClick={limpiarCarrito}>Vaciar Carrito</button>
-            <button className='guardar-pedido' onClick={handleGuardarPedido}>Guardar Pedido</button>
+        {/* Mensaje de feedback */}
+        {/* Aplicamos una clase 'error' o 'success' para dar estilo diferente si quieres */}
+        {mensaje && (
+          <div className={`feedback-mensaje ${mensaje.startsWith("❌") ? 'error' : 'success'}`}>
+            {mensaje}
           </div>
         )}
-        <button className='cerrar-carrito' onClick={onClose} style={{marginTop: itemsDelCarrito.length > 0 ? '10px' : '20px'}}>Cerrar</button>
+
+        {carrito.length === 0 && !isLoading ? ( // Solo muestra "El carrito está vacío" si no está cargando
+          <p style={{ textAlign: 'center', fontSize: '20px' }}>El carrito está vacío</p>
+        ) : (
+          // Solo muestra la lista de ítems si el carrito NO está vacío, incluso si está cargando
+          // ya que el mensaje de "Procesando..." estará visible.
+          carrito.length > 0 && (
+            <ul style={{ padding: 0, margin: 0 }}>
+              {carrito.map(item => (
+                <li key={item.id} className='carrito-item'>
+                  <div className='contenedor-texto'>
+                    <span>{item.instrumento}</span>
+                    <span>${item.precio.toFixed(2)}</span>
+                  </div>
+
+                  <div className='botones-contenedor'>
+                    <div>
+                      <button
+                        className='cantidad'
+                        onClick={() => modificarCantidad(item.id, item.cantidad - 1)}
+                        disabled={isLoading} // Deshabilitado si está cargando
+                      >
+                        <FontAwesomeIcon icon={faMinus} />
+                      </button>
+                      <span style={{ padding: '0 10px' }}>{item.cantidad}</span>
+                      <button
+                        className='cantidad'
+                        onClick={() => modificarCantidad(item.id, item.cantidad + 1)}
+                        disabled={isLoading} // Deshabilitado si está cargando
+                      >
+                        <FontAwesomeIcon icon={faPlus} />
+                      </button>
+                    </div>
+                    <button
+                      className='eliminar'
+                      onClick={() => eliminarItem(item.id)}
+                      disabled={isLoading} // Deshabilitado si está cargando
+                    >
+                      <FontAwesomeIcon icon={faTrashCan} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+
+        <div className='botones-carrito'>
+          <p style={{ margin: '8px', textAlign: 'center', fontSize: '1.2em', fontWeight: '600' }}>
+            Total: ${total.toFixed(2)}
+          </p>
+          <button
+            className='vaciar-carrito'
+            onClick={limpiarCarrito}
+            disabled={isLoading || carrito.length === 0} // Deshabilitado si carga o si no hay ítems
+          >
+            Vaciar Carrito
+          </button>
+          <button
+            className='guardar-pedido' // Puedes renombrar la clase CSS si quieres (ej: 'btn-pagar-mp')
+            onClick={handleGuardarPedido} // Llama a la nueva función combinada
+            disabled={isLoading || carrito.length === 0} // Deshabilitado si carga o si no hay ítems
+          >
+            {isLoading ? "Procesando..." : "Pagar con Mercado Pago"} {/* Texto dinámico */}
+          </button>
+          <button
+            className='cerrar-carrito'
+            onClick={onClose}
+            disabled={isLoading} // Deshabilitado si está cargando
+          >
+            Cerrar
+          </button>
+        </div>
       </aside>
     </div>
   );
-};
+}
