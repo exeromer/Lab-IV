@@ -23,7 +23,8 @@
 
 // AXIOS API
 import axios, { AxiosError } from 'axios';
-import { Instrumento, NuevoInstrumento, Categoria, PedidoResponse } from '../types/types';
+import { Instrumento, NuevoInstrumento, Categoria, PedidoResponse,PedidoRequest } from '../types/types';
+
 
 const apiClient = axios.create({
     baseURL: 'http://localhost:8080/api',
@@ -129,4 +130,16 @@ export const updateInstrumento = async (id: number, instrumento: Instrumento): P
         const axiosError = error as AxiosError<{ message?: string }>;
         throw new Error(`Error al actualizar instrumento: ${axiosError.response?.data?.message || axiosError.message}`);
     }
+};
+
+//Funcion para crear Pedido
+export const createPedido = async (pedidoData: PedidoRequest): Promise<PedidoResponse> => {
+  try {
+    const response = await apiClient.post<PedidoResponse>('/pedidos', pedidoData);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ error?: string; message?: string }>; // Ajusta según la estructura de error de tu backend
+    const errorMessage = axiosError.response?.data?.error || axiosError.response?.data?.message || axiosError.message || 'Error al guardar el pedido';
+    throw new Error(errorMessage);
+  }
 };

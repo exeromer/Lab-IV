@@ -5,6 +5,8 @@ import './CarritoAside.sass'
 import Titulo from '../Titulo/Titulo'
 import { useState } from 'react'
 import { CarritoAsideProps, PedidoRequest } from '../../types/types'
+import { createPedido } from '../../services/api'; // Importa la nueva función
+
 
 //Declaracion MercadoPago 
 declare global {
@@ -22,98 +24,119 @@ export const CarritoAside: React.FC<CarritoAsideProps> = ({ visible, onClose }) 
 
 
   const handleGuardarPedido = async () => {
-    if (carrito.length === 0) {
-      setMensaje("El carrito está vacío.");
-      return;
+  if (carrito.length === 0) {
+    setMensaje("El carrito está vacío.");
+    return;
+  }
+  setIsLoading(true);
+  setMensaje("Procesando pedido...");
+
+  try {
+    // Calcular el total del pedido
+    const calcularTotal = () => {
+      return carrito.reduce((total, item) => {
+        return total + (item.precio * item.cantidad);
+      }, 0);
+    };
+
+    const pedido: PedidoRequest = {
+      fecha: new Date().toISOString(),
+      total: calcularTotal(),
+      detalles: carrito.map(item => ({
+        instrumentoId: item.id,
+        cantidad: item.cantidad,
+      })),
     }
-    setIsLoading(true);
-    setMensaje("Procesando pedido...");
 
-    try {
-      // Calcular el total del pedido
-      const calcularTotal = () => {
-        return carrito.reduce((total, item) => {
-          return total + (item.precio * item.cantidad);
-        }, 0);
-      };
+    const response = await fetch('http://localhost:8080/api/pedidos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(pedido), // Enviar el objeto 'pedido' completo
+      credentials: 'include', // <--- MODIFICACIÓN AQUÍ
+    });
 
-      const pedido: PedidoRequest = {
-        fecha: new Date().toISOString(),
-        total: calcularTotal(),
-        detalles: carrito.map(item => ({
-          instrumentoId: item.id,
-          cantidad: item.cantidad,
-        })),
+    // Es importante verificar el estado de la respuesta ANTES de intentar parsear el JSON
+    if (!response.ok) {
+      // Si no está ok, intenta leer el cuerpo como texto para ver el mensaje de error del servidor
+      const errorText = await response.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.error || errorData.message || `Error ${response.status}: ${errorText}`);
+      } catch (e) {
+        // Si falla el parseo JSON, usa el texto directo del error (que podría ser HTML o un mensaje simple)
+        throw new Error(`Error ${response.status}: ${errorText}`);
       }
-
-      const response = await fetch('http://localhost:8080/api/pedidos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(pedido), // Enviar el objeto 'pedido' completo
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al guardar el pedido');
-      }
-      const orderId = data.id; // Asumiendo que el ID viene en la raíz del DTO de respuesta
-      setMensaje(`Pedido Nro. ${orderId} guardado. Preparando pago...`);
-      
-      // Realizar el pago con MercadoPago
-      const responsePreferencia = await fetch(`http://localhost:8080/api/pedidos/${orderId}/preferencia`, {
-        method: 'POST', // Confirmado por tu PedidoController.java
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const dataPreferencia = await responsePreferencia.json();
-
-      if (!responsePreferencia.ok) {
-        throw new Error(dataPreferencia.error || 'Error al crear la preferencia de pago');
-      }
-
-      // El backend devuelve preferenceId y initPoint
-      const preferenceId = dataPreferencia.preferenceId;
-      const initPointUrl = dataPreferencia.initPoint; // <-- URL de redirección directa
-
-      if (!preferenceId && !initPointUrl) { // Verificamos si alguno de los dos existe
-        throw new Error('No se recibió el ID de preferencia o el init_point de Mercado Pago.');
-      }
-
-      // Redirigir al usuario a la URL de redirección directa de Mercado Pago
-      if (initPointUrl) {
-        window.location.href = initPointUrl;
-      }
-      else if (preferenceId) { // Si no hay initPoint pero sí preferenceId, y el SDK está cargado
-         if (window.MercadoPago) {
-            const mp = new window.MercadoPago(MERCADOPAGO_PUBLIC_KEY, {
-             locale: 'es-AR' // Ajusta la localización si es necesario
-           });
-           mp.checkout({
-             preference: {
-               id: preferenceId
-             },
-             autoOpen: true,
-           });
-         } else {
-            console.error("El SDK de Mercado Pago no está cargado y no se pudo usar el preferenceId.");
-            throw new Error("Error al iniciar el pago: SDK de Mercado Pago no disponible para usar preferenceId.");
-         }
-       }
-      else {
-        console.error("El SDK de Mercado Pago no está cargado o no se recibió información para la redirección.");
-        throw new Error("Error al iniciar el pago: No se pudo redirigir a Mercado Pago.");
-      }
-
-    } catch (error) {
-      console.error('Error en el proceso:', error);
-      setMensaje(error instanceof Error ? `❌ ${error.message}` : '❌ Error desconocido durante el proceso');
-      setIsLoading(false);
     }
-  };
+
+    const data = await response.json(); // Ahora es más seguro llamar a .json()
+    const orderId = data.id; // Asumiendo que el ID viene en la raíz del DTO de respuesta
+    if (!orderId) { // Verificación adicional por si el ID no viene
+        throw new Error('No se recibió ID del pedido guardado.');
+    }
+    setMensaje(`Pedido Nro. ${orderId} guardado. Preparando pago...`);
+    
+    // Realizar el pago con MercadoPago
+    const responsePreferencia = await fetch(`http://localhost:8080/api/pedidos/${orderId}/preferencia`, {
+      method: 'POST', 
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', 
+    });
+
+    if (!responsePreferencia.ok) {
+      const errorTextPreferencia = await responsePreferencia.text();
+      try {
+        const errorDataPreferencia = JSON.parse(errorTextPreferencia);
+        throw new Error(errorDataPreferencia.error || errorDataPreferencia.message || `Error ${responsePreferencia.status}: ${errorTextPreferencia}`);
+      } catch (e) {
+        throw new Error(`Error ${responsePreferencia.status}: ${errorTextPreferencia}`);
+      }
+    }
+
+    const dataPreferencia = await responsePreferencia.json();
+
+    // El backend devuelve preferenceId y initPoint
+    const preferenceId = dataPreferencia.preferenceId;
+    const initPointUrl = dataPreferencia.initPoint;
+
+    if (!preferenceId && !initPointUrl) { // Verificamos si alguno de los dos existe
+      throw new Error('No se recibió el ID de preferencia o el init_point de Mercado Pago.');
+    }
+
+    // Redirigir al usuario a la URL de redirección directa de Mercado Pago
+    if (initPointUrl) {
+      window.location.href = initPointUrl;
+    }
+    else if (preferenceId) { // Si no hay initPoint pero sí preferenceId, y el SDK está cargado
+      if (window.MercadoPago) {
+        const mp = new window.MercadoPago(MERCADOPAGO_PUBLIC_KEY, {
+          locale: 'es-AR' // Ajusta la localización si es necesario
+        });
+        mp.checkout({
+          preference: {
+            id: preferenceId
+          },
+          autoOpen: true,
+        });
+      } else {
+        console.error("El SDK de Mercado Pago no está cargado y no se pudo usar el preferenceId.");
+        throw new Error("Error al iniciar el pago: SDK de Mercado Pago no disponible para usar preferenceId.");
+      }
+    }
+    else {
+      console.error("El SDK de Mercado Pago no está cargado o no se recibió información para la redirección.");
+      throw new Error("Error al iniciar el pago: No se pudo redirigir a Mercado Pago.");
+    }
+
+  } catch (error) {
+    console.error('Error en el proceso:', error);
+    setMensaje(error instanceof Error ? `❌ ${error.message}` : '❌ Error desconocido durante el proceso');
+    setIsLoading(false);
+  }
+};
 
   if (!visible) return null;
 
