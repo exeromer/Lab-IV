@@ -27,6 +27,7 @@ import { Instrumento, NuevoInstrumento, Categoria, PedidoResponse } from '../typ
 
 const apiClient = axios.create({
     baseURL: 'http://localhost:8080/api',
+    withCredentials: true,
 });
 
 // Función para obtener todos los instrumentos

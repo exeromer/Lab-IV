@@ -132,3 +132,16 @@ fecha: string
 total: number
 detalles: DetallePedidoRequest[]
 }
+
+// --- TIPOS PARA AUTENTICACIÓN ---
+export interface Usuario {
+    id: number; // o string si es UUID en tu backend
+    nombreUsuario: string;
+    rol: string; // Ej: "ADMIN", "OPERADOR", "VISOR" (asegúrate que coincida con los strings de rol del backend)
+    
+}
+
+export interface LoginCredentials {
+    nombreUsuario: string; // O 'username' si el DTO de login en el backend espera 'username'
+    clave: string;        // O 'password' si el DTO de login en el backend espera 'password'
+}
