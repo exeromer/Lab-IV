@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
  * - Expone endpoints para crear, leer, actualizar y eliminar categorías.
  * - Utiliza DTOs para evitar exponer datos internos de las entidades.
  */
-@CrossOrigin(origins = "*") // Permite solicitudes desde cualquier origen (CORS)
 @RestController
 @RequestMapping("/api/categoria") // Ruta base para todos los endpoints
 public class CategoriaController {

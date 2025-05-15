@@ -1,21 +1,16 @@
-/**
- * InstrumentoController.java
- * Controlador REST para gestionar operaciones CRUD de instrumentos.
- * - Crear, actualizar, eliminar y consultar instrumentos.
- * - Consultar instrumentos por categoría.
- */
 package com.utn.frm.instrumentos.controllers;
 
 import com.utn.frm.instrumentos.entities.Categoria;
 import com.utn.frm.instrumentos.entities.Instrumento;
 import com.utn.frm.instrumentos.repositories.CategoriaRepository;
 import com.utn.frm.instrumentos.repositories.InstrumentoRepository;
+import org.springframework.http.HttpStatus; // Necesario para ResponseEntity.status
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize; // Importar
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/instrumentos")
 public class InstrumentoController {
@@ -23,6 +18,7 @@ public class InstrumentoController {
     private final InstrumentoRepository instrumentoRepo;
     private final CategoriaRepository categoriaRepo;
 
+    // Inyección por constructor es correcta
     public InstrumentoController(InstrumentoRepository instrumento, CategoriaRepository categoria) {
         this.instrumentoRepo = instrumento;
         this.categoriaRepo = categoria;
@@ -30,6 +26,7 @@ public class InstrumentoController {
 
     /**
      * Obtiene todos los instrumentos registrados.
+     * Acceso público o para cualquier usuario autenticado según SecurityConfig.
      * @return Lista de Instrumento.
      */
     @GetMapping("/all")
@@ -44,7 +41,12 @@ public class InstrumentoController {
      */
     @GetMapping("/categoria/{id}")
     public List<Instrumento> getByCategoria(@PathVariable Long id) {
+        // Considera manejar el caso en que la categoría no se encuentre con una respuesta más explícita
         Categoria categoria = categoriaRepo.findById(id).orElse(null);
+        if (categoria == null) {
+            // Podrías devolver una lista vacía o un ResponseEntity con 404
+            return List.of(); // o ResponseEntity.notFound().build(); pero el tipo de retorno es List
+        }
         return instrumentoRepo.findByCategoria(categoria);
     }
 
@@ -61,72 +63,94 @@ public class InstrumentoController {
     }
 
     /**
-     * Crea un nuevo instrumento.
+     * Crea un nuevo instrumento. Solo Admin.
      * @param instrumento Datos del instrumento a crear (incluye categoría).
-     * @return Instrumento creado.
-     * @throws RuntimeException Si la categoría asociada no existe.
+     * @return ResponseEntity con el Instrumento creado o error.
      */
     @PostMapping("/crear")
-    public Instrumento crear(@RequestBody Instrumento instrumento) {
-        Optional<Categoria> categoria = categoriaRepo.findById(instrumento.getCategoria().getId());
-        if (categoria.isEmpty()) {
-            throw new RuntimeException("Categoría no encontrada");
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> crear(@RequestBody Instrumento instrumento) {
+        try {
+            if (instrumento.getCategoria() == null || instrumento.getCategoria().getId() == null) {
+                return ResponseEntity.badRequest().body("La categoría y su ID son obligatorios para crear un instrumento.");
+            }
+            Optional<Categoria> categoriaOpt = categoriaRepo.findById(instrumento.getCategoria().getId());
+            if (categoriaOpt.isEmpty()) {
+                return ResponseEntity.badRequest().body("Categoría no encontrada con ID: " + instrumento.getCategoria().getId());
+            }
+            instrumento.setCategoria(categoriaOpt.get());
+            Instrumento nuevoInstrumento = instrumentoRepo.save(instrumento);
+            return ResponseEntity.status(HttpStatus.CREATED).body(nuevoInstrumento);
+        } catch (Exception e) {
+            // Loguear el error es buena práctica
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al crear el instrumento: " + e.getMessage());
         }
-        instrumento.setCategoria(categoria.get());
-        return instrumentoRepo.save(instrumento);
     }
 
     /**
-     * Actualiza un instrumento existente.
+     * Actualiza un instrumento existente. Solo Admin.
      * @param id ID del instrumento a actualizar.
-     * @param instrumento Nuevos datos del instrumento.
-     * @return Instrumento actualizado.
-     * @throws RuntimeException Si el instrumento o categoría no existen.
+     * @param instrumentoActualizado Nuevos datos del instrumento.
+     * @return ResponseEntity con el Instrumento actualizado o error.
      */
     @PutMapping("/actualizar/{id}")
-    public Instrumento actualizar(
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> actualizar(
             @PathVariable Long id,
-            @RequestBody Instrumento instrumentoActualizado) {  // Renombrar a "instrumentoActualizado" para claridad
+            @RequestBody Instrumento instrumentoActualizado) {
 
-        // 1. Buscar el instrumento existente
-        Instrumento instrumentoExistente = instrumentoRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Instrumento no encontrado"));
+        try {
+            Instrumento instrumentoExistente = instrumentoRepo.findById(id)
+                    .orElse(null);
 
-        // 2. Validar que la categoría no sea nula
-        if (instrumentoActualizado.getCategoria() == null) {
-            throw new RuntimeException("La categoría es obligatoria");
+            if (instrumentoExistente == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            if (instrumentoActualizado.getCategoria() == null || instrumentoActualizado.getCategoria().getId() == null) {
+                return ResponseEntity.badRequest().body("La categoría y su ID son obligatorios para actualizar un instrumento.");
+            }
+
+            Categoria categoria = categoriaRepo.findById(instrumentoActualizado.getCategoria().getId())
+                    .orElse(null);
+            if (categoria == null) {
+                return ResponseEntity.badRequest().body("Categoría no encontrada con ID: " + instrumentoActualizado.getCategoria().getId());
+            }
+
+            instrumentoExistente.setInstrumento(instrumentoActualizado.getInstrumento()); // Asumo que tienes un campo "instrumento" (nombre)
+            instrumentoExistente.setMarca(instrumentoActualizado.getMarca());
+            instrumentoExistente.setModelo(instrumentoActualizado.getModelo());
+            instrumentoExistente.setImagen(instrumentoActualizado.getImagen());
+            instrumentoExistente.setPrecio(instrumentoActualizado.getPrecio());
+            instrumentoExistente.setCostoEnvio(instrumentoActualizado.getCostoEnvio());
+            instrumentoExistente.setCantidadVendida(instrumentoActualizado.getCantidadVendida());
+            instrumentoExistente.setDescripcion(instrumentoActualizado.getDescripcion());
+            instrumentoExistente.setCategoria(categoria);
+
+            Instrumento guardado = instrumentoRepo.save(instrumentoExistente);
+            return ResponseEntity.ok(guardado);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al actualizar el instrumento: " + e.getMessage());
         }
-
-        // 3. Buscar la categoría en la base de datos
-        Categoria categoria = categoriaRepo.findById(instrumentoActualizado.getCategoria().getId())
-                .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
-
-        // 4. Copiar campos del DTO al instrumento existente (actualizar solo campos permitidos)
-        instrumentoExistente.setMarca(instrumentoActualizado.getMarca());
-        instrumentoExistente.setModelo(instrumentoActualizado.getModelo());
-        instrumentoExistente.setImagen(instrumentoActualizado.getImagen());
-        instrumentoExistente.setPrecio(instrumentoActualizado.getPrecio());
-        instrumentoExistente.setCostoEnvio(instrumentoActualizado.getCostoEnvio());
-        instrumentoExistente.setCantidadVendida(instrumentoActualizado.getCantidadVendida());
-        instrumentoExistente.setDescripcion(instrumentoActualizado.getDescripcion());
-        instrumentoExistente.setCategoria(categoria);
-
-        // 5. Guardar cambios
-        return instrumentoRepo.save(instrumentoExistente);
     }
 
     /**
-     * Elimina un instrumento por su ID.
+     * Elimina un instrumento por su ID. Solo Admin.
      * @param id ID del instrumento a eliminar.
-     * @return Mensaje de confirmación.
-     * @throws RuntimeException Si el instrumento no existe.
+     * @return ResponseEntity con mensaje de confirmación o error.
      */
     @DeleteMapping("/borrar/{id}")
-    public String delete(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> delete(@PathVariable Long id) {
         if (!instrumentoRepo.existsById(id)) {
-            throw new RuntimeException("Instrumento no encontrado");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Instrumento no encontrado con ID: " + id);
         }
-        instrumentoRepo.deleteById(id);
-        return "Instrumento eliminado con éxito";
+        try {
+            instrumentoRepo.deleteById(id);
+            return ResponseEntity.ok("Instrumento eliminado con éxito. ID: " + id);
+        } catch (Exception e) {
+            // Por si hay alguna restricción de FK u otro problema
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar el instrumento: " + e.getMessage());
+        }
     }
 }

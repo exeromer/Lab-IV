@@ -26,10 +26,6 @@ public class Categoria {
     @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Instrumento> instrumentos = new ArrayList<>();
 
-    public Categoria(String denominacion) {
-        this.denominacion = denominacion;
-    }
-
     public Categoria() {
     }
 

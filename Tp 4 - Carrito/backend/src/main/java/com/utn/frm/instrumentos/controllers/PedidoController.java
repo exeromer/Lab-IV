@@ -22,7 +22,6 @@ import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/pedidos") //Cambio realizado ahora es pedidoS
-@CrossOrigin(origins = "*")
 public class PedidoController {
 
     private static final Logger log = LoggerFactory.getLogger(PedidoController.class);

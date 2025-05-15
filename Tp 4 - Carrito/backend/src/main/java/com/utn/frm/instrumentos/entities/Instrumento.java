@@ -47,6 +47,20 @@ public class Instrumento {
     @JsonIgnoreProperties({"instrumentos", "hibernateLazyInitializer", "handler"})
     private Categoria categoria;
 
+    public Instrumento(String instrumento, String marca, String modelo, String imagen,
+                       BigDecimal precio, String costoEnvio, int cantidadVendida,
+                       String descripcion, Categoria categoria) {
+        this.instrumento = instrumento;
+        this.marca = marca;
+        this.modelo = modelo;
+        this.imagen = imagen;
+        this.precio = precio;
+        this.costoEnvio = costoEnvio;
+        this.cantidadVendida = cantidadVendida;
+        this.descripcion = descripcion;
+        this.categoria = categoria;
+    }
+
     public Instrumento() {
     }
 
