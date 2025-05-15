@@ -75,7 +75,7 @@ public class AuthController {
                 Usuario usuario = usuarioOpt.get();
                 UsuarioResponse usuarioResponse = new UsuarioResponse(usuario.getId(), usuario.getNombreUsuario(), usuario.getRol());
                 return ResponseEntity.ok(usuarioResponse);
-            } else {
+            } else { 
                 Map<String, String> errorBody = new HashMap<>();
                 errorBody.put("message", "Error al recuperar datos del usuario post-autenticación.");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody);

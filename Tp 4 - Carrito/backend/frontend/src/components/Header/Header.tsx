@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCartShopping, faMoon, faSun } from '@fortawesome/free-solid-svg-icons'
 import { CarritoAside } from '../Carrito/CarritoAside'
 import './Header.sass'
+import { useAuth } from '../../context/AuthContext'; // Importa useAuth
 
 interface HeaderProps {
   darkMode: boolean;
@@ -18,8 +19,20 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
   const { carrito } = useCart();
   const [mostrarCarrito, setMostrarCarrito] = useState(false);
+  const { isAuthenticated, user, logout, isLoading: isAuthLoading } = useAuth();
 
   const cantidadTotal = carrito.reduce((acc, item) => acc + item.cantidad, 0);
+
+  const handleLogout = async () => {
+    try {
+      await logout(); // Esto llama a la función logout del AuthContext
+      // El AuthContext ya redirige a /login, así que no necesitas navigate('/') aquí necesariamente
+      // a menos que quieras un comportamiento diferente.
+    } catch (error) {
+      console.error("Error al cerrar sesión desde el Header:", error);
+      // Podrías mostrar un mensaje de error al usuario si el logout falla
+    }
+  };
 
   return (
     <>
@@ -59,6 +72,32 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
                   }}>
                     {cantidadTotal}
                   </span>
+                )}
+              </div>
+              <div className="auth-actions">
+                {isAuthenticated ? (
+                  <>
+                    <span style={{ marginRight: '10px', color: darkMode ? '#eee' : '#212529' }}> {/* Ajusta color para dark mode */}
+                      Hola, {user?.nombreUsuario} ({user?.rol})
+                    </span>
+                    <button
+                      onClick={handleLogout}
+                      disabled={isAuthLoading} // Deshabilita si AuthContext está cargando algo (ej. durante el logout)
+                      className="btn btn-outline-secondary btn-sm" // Puedes usar clases de Bootstrap o las tuyas
+                      style={{ color: darkMode ? '#eee' : '#212529', borderColor: darkMode ? '#6c757d' : '#6c757d' }} // Estilo básico
+                    >
+                      {isAuthLoading ? 'Saliendo...' : 'Logout'}
+                    </button>
+                  </>
+                ) : (
+                  <Nav.Link
+                    className='link' // Usa tu clase 'link' o una específica para login
+                    onClick={() => navigate('/login')}
+                    disabled={isAuthLoading} // Deshabilita si AuthContext está en estado de carga inicial
+                    style={{ color: darkMode ? '#eee' : '#212529' }} // Ajusta color para dark mode
+                  >
+                    Login
+                  </Nav.Link>
                 )}
               </div>
             </div>

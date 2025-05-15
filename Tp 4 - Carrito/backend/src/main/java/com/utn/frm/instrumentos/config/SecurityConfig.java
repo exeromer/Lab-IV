@@ -106,7 +106,7 @@ public class SecurityConfig {
                         .requestMatchers(new AntPathRequestMatcher("/api/pedidos/*/preferencia", HttpMethod.POST.name())).hasAnyRole("ADMIN","OPERADOR")
 
                         // Ver TODOS los pedidos (GET /api/pedidos): Solo para ADMIN y OPERADOR
-                        .requestMatchers(new AntPathRequestMatcher("/api/pedidos", HttpMethod.GET.name())).hasAnyRole("ADMIN", "OPERADOR")
+                        .requestMatchers(new AntPathRequestMatcher("/api/pedidos", HttpMethod.GET.name())).hasAnyRole("ADMIN", "OPERADOR", "VISOR")
 
                         // Ver UN pedido por ID (GET /api/pedidos/{id})
                         .requestMatchers(new AntPathRequestMatcher("/api/pedidos/{id}", HttpMethod.GET.name())).hasAnyRole("ADMIN", "OPERADOR", "VISOR")
